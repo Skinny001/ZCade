@@ -8,6 +8,14 @@ import confetti from "canvas-confetti";
 
 import { Tile, ScreenState, LeaderboardEntry } from "./types";
 import { getDailyMission, GRID_SIZE, supabase } from "./utils";
+
+type DailyScoreRow = {
+  player_handle: string;
+  score: number;
+  moves_used: number;
+  created_at: string;
+  players: { zcash_address: string | null } | null;
+};
 import { WelcomeScreen } from "./WelcomeScreen";
 import { DashboardPanel } from "./DashboardPanel";
 import { GameBoard } from "./GameBoard";
@@ -46,7 +54,8 @@ export default function ZecCascadeApp() {
       // Join daily_scores with players to get wallet addresses
       const { data } = await supabase
         .from("daily_scores")
-        .select("player_handle, score, moves_used, created_at, players!inner(zcash_address)");
+        .select("player_handle, score, moves_used, created_at, players!inner(zcash_address)")
+        .returns<DailyScoreRow[]>();
 
       if (!data) return;
 
@@ -63,7 +72,7 @@ export default function ZecCascadeApp() {
             totalScore: 0, 
             totalMoves: 0, 
             earliestCompletion: row.created_at,
-            zcashAddress: row.players?.zcash_address 
+            zcashAddress: row.players?.zcash_address ?? undefined
           };
         }
         // Keep earliest (fastest) completion
@@ -415,7 +424,7 @@ export default function ZecCascadeApp() {
   // Result screen
   const resultScreen = (
     <ResultsScreen
-      gameStatus={gameStatus}
+      gameStatus={gameStatus as "won" | "lost"}
       todayScore={todayScore}
       walletAddress={walletAddress}
       setWalletAddress={setWalletAddress}
@@ -455,12 +464,13 @@ export default function ZecCascadeApp() {
             // Refresh leaderboard data
             const { data } = await supabase
               .from("daily_scores")
-              .select("player_handle, score, moves_used, players!inner(zcash_address)");
+              .select("player_handle, score, moves_used, players!inner(zcash_address)")
+              .returns<DailyScoreRow[]>();
             if (data) {
               const userStats: Record<string, { totalScore: number; totalMoves: number; zcashAddress?: string }> = {};
               data.forEach((row) => {
                 if (!userStats[row.player_handle]) {
-                  userStats[row.player_handle] = { totalScore: 0, totalMoves: 0, zcashAddress: row.players?.zcash_address };
+                  userStats[row.player_handle] = { totalScore: 0, totalMoves: 0, zcashAddress: row.players?.zcash_address ?? undefined };
                 }
                 userStats[row.player_handle].totalScore += row.score;
                 userStats[row.player_handle].totalMoves += row.moves_used;

@@ -157,7 +157,7 @@ export function LeaderboardModal({ data, currentUsername, currentScore, onClose,
                     </span>
                     {item.zcashAddress ? (
                       <button
-                        onClick={() => handleCopy(item.zcashAddress)}
+                        onClick={() => handleCopy(item.zcashAddress!)}
                         className="p-1 text-slate-500 hover:text-amber-400 transition-colors flex-shrink-0 flex items-center gap-1"
                         title={`Copy ${item.zcashAddress}`}
                       >
