@@ -436,6 +436,28 @@ export default function ZecCascadeApp() {
           { onConflict: 'handle' }
         );
         setWalletSubmitted(true);
+        // Refresh leaderboard data after saving wallet
+        const { data } = await supabase
+          .from("daily_scores")
+          .select("player_handle, score, moves_used, created_at, players!inner(zcash_address)")
+          .returns<DailyScoreRow[]>();
+        if (data) {
+          const userStats: Record<string, { totalScore: number; totalMoves: number; earliestCompletion: string; zcashAddress?: string }> = {};
+          data.forEach((row) => {
+            if (!userStats[row.player_handle]) {
+              userStats[row.player_handle] = { totalScore: 0, totalMoves: 0, earliestCompletion: row.created_at, zcashAddress: row.players?.zcash_address ?? undefined };
+            }
+            if (row.created_at < userStats[row.player_handle].earliestCompletion) {
+              userStats[row.player_handle].earliestCompletion = row.created_at;
+            }
+            userStats[row.player_handle].totalScore += row.score;
+            userStats[row.player_handle].totalMoves += row.moves_used;
+          });
+          const sorted = Object.entries(userStats)
+            .map(([name, stat]) => ({ name, score: stat.totalScore, moves: stat.totalMoves, earliestCompletion: stat.earliestCompletion, zcashAddress: stat.zcashAddress }))
+            .sort((a, b) => b.score - a.score || a.moves - b.moves || new Date(a.earliestCompletion).getTime() - new Date(b.earliestCompletion).getTime());
+          setLeaderboardData(sorted.slice(0, 5));
+        }
       }}
       onShowLeaderboard={() => setShowLeaderboard(true)}
       onContinueToDashboard={() => setScreen("gate")}
