@@ -118,23 +118,37 @@ export default function ZecCascadeApp() {
     if (!handle) return;
 
 
-    const { data, error } = await supabase
-      .from("daily_scores")
-      .select("score")
-      .eq("player_handle", handle)
-      .eq("play_date", mission.todayUTC)
-      .maybeSingle();
+    // Fetch today's score AND saved wallet address in parallel
+    const [{ data: scoreData, error: scoreError }, { data: playerData }] = await Promise.all([
+      supabase
+        .from("daily_scores")
+        .select("score")
+        .eq("player_handle", handle)
+        .eq("play_date", mission.todayUTC)
+        .maybeSingle(),
+      supabase
+        .from("players")
+        .select("zcash_address")
+        .eq("handle", handle)
+        .maybeSingle()
+    ]);
 
-    console.log("[handleLogin] Supabase response:", { data, error });
-    console.log("[handleLogin] Found existing score:", data);
+    console.log("[handleLogin] Score response:", { data: scoreData, error: scoreError });
+    console.log("[handleLogin] Player wallet response:", { data: playerData });
 
-    if (error) {
-      console.error("[handleLogin] Supabase error:", error);
+    if (scoreError) {
+      console.error("[handleLogin] Supabase error:", scoreError);
     }
 
-    if (data) {
+    // If player has a saved wallet, pre-fill it
+    if (playerData?.zcash_address) {
+      setWalletAddress(playerData.zcash_address);
+      setWalletSubmitted(true);
+    }
+
+    if (scoreData) {
       console.log("[handleLogin] Returning player - navigating to gate");
-      setTodayScore(data.score);
+      setTodayScore(scoreData.score);
       setScreen("gate");
     } else {
       console.log("[handleLogin] New player - navigating to playing");
